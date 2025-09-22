@@ -1,0 +1,47 @@
+-- All data is before 11-27-2012 as that is when request came in
+
+-- 1) Gsearch seems to be the biggest driver. Could you pull monthly trends for gsearch sessions and orders so that we can showcase growth there?
+
+SELECT YEAR(ws.created_at) AS Year,
+	MONTH(ws.created_at) AS MONTH,
+	COUNT(DISTINCT ws.website_session_id) AS sessions,
+	COUNT(DISTINCT o.order_id) AS orders
+FROM website_sessions ws
+	LEFT JOIN orders o
+		ON ws.website_session_id = o.website_session_id
+WHERE ws.utm_source = 'gsearch'
+	AND ws.created_at < '2012-11-27'
+GROUP BY 1,2;
+-- Gsearch sessions and orders growing are substaintially over time, orders have grown about 4x
+
+-- 2) see similar monthly trend for Gsearch, but this time break out nonbrand and brand campaigns separately.
+SELECT YEAR(ws.created_at) AS Year,
+	MONTH(ws.created_at) AS MONTH,
+	COUNT(DISTINCT CASE WHEN ws.utm_campaign = 'brand' THEN ws.website_session_id ELSE NULL END) AS brand_sessions,
+	COUNT(DISTINCT CASE WHEN ws.utm_campaign = 'brand' THEN o.order_id ELSE NULL END) AS brand_orders,
+    COUNT(DISTINCT CASE WHEN ws.utm_campaign = 'nonbrand' THEN ws.website_session_id ELSE NULL END) AS nonbrand_sessions,
+	COUNT(DISTINCT CASE WHEN ws.utm_campaign = 'nonbrand' THEN o.order_id ELSE NULL END) AS nonbrand_orders
+FROM website_sessions ws
+	LEFT JOIN orders o
+		ON ws.website_session_id = o.website_session_id
+WHERE ws.utm_source = 'gsearch'
+	AND ws.created_at < '2012-11-27'
+GROUP BY 1,2;
+-- Brand campaigns represent someone searching specifically for your business. This has dramatically increased over time, meaning our brand is growing.
+
+-- 3) While on Gsearch, dive into nonbrand, pull out monthly sessions and orders split by device type? Want to identify our traffic sources
+SELECT YEAR(ws.created_at) AS Year,
+	MONTH(ws.created_at) AS MONTH,
+	COUNT(DISTINCT CASE WHEN ws.device_type = 'mobile' THEN ws.website_session_id ELSE NULL END) AS mobile_sessions,
+	COUNT(DISTINCT CASE WHEN ws.device_type = 'mobile' THEN o.order_id ELSE NULL END) AS mobile_orders,
+	COUNT(DISTINCT CASE WHEN ws.device_type = 'desktop' THEN ws.website_session_id ELSE NULL END) AS desktop_sessions,
+	COUNT(DISTINCT CASE WHEN ws.device_type = 'desktop' THEN o.order_id ELSE NULL END) AS desktop_orders
+FROM website_sessions ws
+	LEFT JOIN orders o
+		ON ws.website_session_id = o.website_session_id
+WHERE ws.utm_source = 'gsearch'
+	AND ws.utm_campaign = 'nonbrand'
+	AND ws.created_at < '2012-11-27'
+GROUP BY 1,2;
+
+-- We see many more desktop sessions, more than 3x in recent months. Orders are even more drastic, almost 10x compared to mobile
