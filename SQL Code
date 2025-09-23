@@ -65,3 +65,80 @@ WHERE created_at < '2012-11-27'
 GROUP BY 1,2;
 -- We can see sessions from our Gsearch and Bsearch paid sources. Organic sources come from the search engines, but are not from paid sources. Direct sessions are where the session was from a direct type in.
 -- We can see all sources are growing over time and Gsearch is the greatest source. However organic and direct are also growing over time, which we do not need to pay for.
+
+-- 5) Tell story of website performance over first 8 months. Pull session to order conversion rates, by month
+SELECT Year(ws.created_at) AS year,
+	MONTH(ws.created_at) AS month,
+	COUNT(DISTINCT ws.website_session_id) AS sessions,
+	COUNT(DISTINCT o.order_id) AS orders,
+    COUNT(DISTINCT o.order_id) / COUNT(DISTINCT ws.website_session_id) AS conv_rt
+FROM website_sessions ws
+	LEFT JOIN orders o
+		ON ws.website_session_id = o.website_session_id
+WHERE ws.created_at < '2012-11-27'
+GROUP BY Year(ws.created_at), MONTH(ws.created_at);
+-- Conversion rate steadily rises over the first 8 months
+
+-- 6) Perform a Gsearch landing page test for lander-1, estimate the revenue that test earned us (test was 6/19 - 7/28 
+-- Find the first instance of /lander-1
+SELECT pageview_url,
+	MIN(website_pageview_id)
+FROM website_pageviews
+WHERE pageview_url = '/lander-1'
+GROUP BY pageview_url;
+-- 23504
+-- Find the first page view and bounced sessions
+WITH first_pv AS(
+SELECT wp.website_session_id,
+	MIN(wp.website_pageview_id) AS first_pv
+FROM website_pageviews wp
+	LEFT JOIN website_sessions ws
+		ON wp.website_session_id = ws.website_session_id
+WHERE wp.created_at < '2012-07-28'
+	AND wp.website_pageview_id >= '23504'
+    AND ws.utm_source = 'gsearch'
+    AND ws.utm_campaign = 'nonbrand'
+GROUP BY 1
+),
+-- Find entry url
+entry_page AS(
+SELECT fp.website_session_id,
+	wp.pageview_url AS entry_page_url
+FROM first_pv fp
+	LEFT JOIN website_pageviews wp
+		ON fp.first_pv = wp.website_pageview_id
+)
+-- find conversion rate
+SELECT ep.entry_page_url,
+	COUNT(DISTINCT ep.website_session_id) AS sessions,
+	COUNT(DISTINCT o.order_id) AS orders,
+    COUNT(DISTINCT o.order_id) / COUNT(DISTINCT ep.website_session_id) AS conv_rate,
+    SUM(o.price_usd) AS revenue
+FROM entry_page ep
+	LEFT JOIN orders o
+		ON ep.website_session_id = o.website_session_id
+GROUP BY 1;
+-- increase in conv rate is .0088
+-- find the last time that /home was used
+SELECT wp.pageview_url,
+	MAX(ws.website_session_id) AS last_home
+FROM website_pageviews wp
+	LEFT JOIN website_sessions ws
+		ON wp.website_session_id = ws.website_session_id
+WHERE pageview_url = '/home'
+	AND ws.utm_source = 'gsearch'
+    AND ws.utm_campaign = 'nonbrand'
+    AND ws.created_at < '2012-11-27'
+GROUP BY pageview_url;
+-- 17145 last website session routed to /home
+-- how many sessions since
+SELECT COUNT(DISTINCT ws.website_session_id) AS sessions_since
+FROM website_pageviews wp
+	LEFT JOIN website_sessions ws
+		ON wp.website_session_id = ws.website_session_id
+WHERE ws.utm_source = 'gsearch'
+    AND ws.utm_campaign = 'nonbrand'
+	AND ws.website_session_id > '17145'
+    AND ws.created_at < '2012-11-27';
+-- 22972 sessions since /home X .0088 conversions is about 202 additional orders since test ended 7/29
+	-- ~4 months, so ~50 extra orders a month
