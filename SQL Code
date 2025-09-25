@@ -222,3 +222,37 @@ LEFT JOIN website_pageviews wp
 WHERE wp.pageview_url IN ('/home','/lander-1')
 GROUP BY 1;
 -- lander-1 saw a higher click through rate as well as a higher order rate
+
+-- 8) Quantify the impact of our billing test. Analyze lift from test (Sep 10 - Nov 10), in terms of revenue per billing page session. Then pul the number of billing page sessions for the past month to analyze monthly impact
+SELECT wp.website_session_id,
+	wp.pageview_url AS billing_version_seen,
+    o.order_id,
+    o.price_usd
+FROM website_pageviews wp
+	LEFT JOIN orders o
+		ON wp.website_session_id = o.website_session_id
+WHERE wp.created_at BETWEEN '2012-09-10' AND '2012-11-10'
+    AND wp.pageview_url IN ('/billing','/billing-2');
+    
+SELECT billing_version_seen,
+	COUNT(DISTINCT website_session_id) AS sessions,
+	SUM(price_usd) / COUNT(DISTINCT website_session_id) AS rev_per_biling_page_seen
+FROM (
+SELECT wp.website_session_id,
+	wp.pageview_url AS billing_version_seen,
+    o.order_id,
+    o.price_usd
+FROM website_pageviews wp
+	LEFT JOIN orders o
+		ON wp.website_session_id = o.website_session_id
+WHERE wp.created_at BETWEEN '2012-09-10' AND '2012-11-10'
+    AND wp.pageview_url IN ('/billing','/billing-2')
+) AS billing_version
+GROUP BY 1;
+-- $22.83 rev per billing page seen for old version, $31.34 for new version. $8.51 increase
+-- past month sessions
+SELECT COUNT(DISTINCT website_session_id) AS sessions_in_test
+FROM website_pageviews
+WHERE created_at BETWEEN '2012-10-27' AND '2012-11-27'
+	AND pageview_url IN ('/billing','/billing-2');
+-- 1193 sessions in past month, X 8.51 (increase per session) = $10,152 over past month
